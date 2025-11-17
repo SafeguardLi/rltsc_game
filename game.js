@@ -106,13 +106,12 @@ class Vehicle {
         }
     }
 
-    // --- BUG FIX: This logic is now correct ---
-    hasReachedTurnPoint() {
+    hasReachedTurnPoint() { /* ... (unchanged) ... */
         switch (this.direction) {
-            case 'south': return this.y > LANES.side_eb_left; // Turn into Eastbound Left lane
-            case 'north': return this.y < LANES.side_wb_left; // Turn into Westbound Left lane
-            case 'east':  return this.x > LANES.main_nb_left; // Turn into Northbound Left lane
-            case 'west':  return this.x < LANES.main_sb_left; // Turn into Southbound Left lane
+            case 'south': return this.y > LANES.side_eb_left;
+            case 'north': return this.y < LANES.side_wb_left;
+            case 'east':  return this.x > LANES.main_nb_left;
+            case 'west':  return this.x < LANES.main_sb_left;
         }
         return false;
     }
@@ -148,34 +147,35 @@ class Vehicle {
         }
     }
 
-    // --- BUG FIX: This logic is now correct ---
-    // Returns TRUE only if the vehicle is AT the stop line (not anywhere before)
+    // --- BUG FIX: This function is now correct ---
+    // Returns TRUE only if the vehicle is *in the small zone* right before the stop line.
     checkIsAtStopLine() {
-        const checkDistance = 50; // How far back to check (px)
-        const stopBuffer = 3;     // How far before the line to stop (px)
+        const stopBuffer = 3; // Stop 3px before the line
+        const checkZone = 10; // Only check 10px *before* the stop line
         
         switch (this.direction) {
             case 'south': 
-                let frontBumperY_S = this.y + this.height / 2;
-                let stopLineY_S = INTERSECTION.y_start - stopBuffer;
-                return (frontBumperY_S >= stopLineY_S - checkDistance) && (frontBumperY_S <= stopLineY_S);
+                let stopY_S = INTERSECTION.y_start - stopBuffer;
+                let frontY_S = this.y + this.height / 2;
+                // Is the front bumper *past* the start of the zone AND *before* the line?
+                return (frontY_S >= stopY_S - checkZone) && (frontY_S <= stopY_S);
             case 'north':
-                let frontBumperY_N = this.y - this.height / 2;
-                let stopLineY_N = INTERSECTION.y_end + stopBuffer;
-                return (frontBumperY_N <= stopLineY_N + checkDistance) && (frontBumperY_N >= stopLineY_N);
+                let stopY_N = INTERSECTION.y_end + stopBuffer;
+                let frontY_N = this.y - this.height / 2;
+                return (frontY_N <= stopY_N + checkZone) && (frontY_N >= stopY_N);
             case 'east': 
-                let frontBumperX_E = this.x + this.width / 2;
-                let stopLineX_E = INTERSECTION.x_start - stopBuffer;
-                return (frontBumperX_E >= stopLineX_E - checkDistance) && (frontBumperX_E <= stopLineX_E);
+                let stopX_E = INTERSECTION.x_start - stopBuffer;
+                let frontX_E = this.x + this.width / 2;
+                return (frontX_E >= stopX_E - checkZone) && (frontX_E <= stopX_E);
             case 'west': 
-                let frontBumperX_W = this.x - this.width / 2;
-                let stopLineX_W = INTERSECTION.x_end + stopBuffer;
-                return (frontBumperX_W <= stopLineX_W + checkDistance) && (frontBumperX_W >= stopLineX_W);
+                let stopX_W = INTERSECTION.x_end + stopBuffer;
+                let frontX_W = this.x - this.width / 2;
+                return (frontX_W <= stopX_W + checkZone) && (frontX_W >= stopX_W);
         }
         return false;
     }
 
-    // --- NEW: Returns TRUE if the vehicle's front bumper is PAST the stop line ---
+    // Checks if the vehicle's front bumper is PAST the stop line
     checkHasCrossedStopLine() {
         const buffer = 3;
         switch (this.direction) {
@@ -191,7 +191,7 @@ class Vehicle {
         return false;
     }
     
-    isPastIntersection() { /* ... (unchanged, but added default return) ... */
+    isPastIntersection() { /* ... (unchanged) ... */
         switch (this.direction) {
             case 'south': return this.y - this.height / 2 > INTERSECTION.y_end;
             case 'north': return this.y + this.height / 2 < INTERSECTION.y_start;
@@ -201,7 +201,7 @@ class Vehicle {
         return false;
     }
 
-    // --- CHANGED: Uses new checkIsAtStopLine() function ---
+    // --- BUG FIX: This logic is now correct ---
     update(allVehicles) {
         let leadVehicle = this.findLeadVehicle(allVehicles);
         let distanceToLead = leadVehicle ? Math.abs(this.calculateDistanceTo(leadVehicle)) : Infinity;
@@ -221,7 +221,7 @@ class Vehicle {
         // --- State for vehicles 'approaching' the intersection ---
         else {
             let lightStatus = this.getLightStatus();
-            let isAtStopLine = this.checkIsAtStopLine(); // Use the new function
+            let isAtStopLine = this.checkIsAtStopLine(); // Use the new, correct function
 
             // Decision to stop
             if (leadVehicle && distanceToLead < SAFE_GAP_PIXELS) {
@@ -229,13 +229,13 @@ class Vehicle {
             } else if (isAtStopLine && lightStatus === 'red') {
                 this.speed = 0;
             } else if (isAtStopLine && lightStatus === 'yellow' && this.speed === 0) {
-                this.speed = 0;
+                this.speed = 0; // Already stopped, stay stopped
             }
             // Decision to go
             else {
                 this.speed = NORMAL_SPEED_PIXELS;
                 
-                // If we are moving and have *crossed* the stop line, change state!
+                // If we cross the line, change state
                 if (this.checkHasCrossedStopLine()) {
                     if (this.lane.includes('left')) {
                         this.state = 'in_intersection_turning';
