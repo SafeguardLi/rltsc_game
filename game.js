@@ -16,13 +16,28 @@ const gameOverDisplay = document.getElementById('gameOverDisplay');
 const throughputDisplay = document.getElementById('throughputDisplay');
 
 // --- 2. LANE & INTERSECTION COORDINATES ---
+// --- 2. LANE & INTERSECTION COORDINATES ---
 const INTERSECTION = { x_start: 350, x_end: 450, y_start: 250, y_end: 350 };
+
+// --- BUG FIX: This block is now correct ---
 const LANES = {
-    main_sb_left: 362.5, main_sb_straight: 387.5,
-    main_nb_left: 412.5, main_nb_straight: 437.5,
-    side_wb_straight: 262.5, side_wb_left: 287.5,
-    side_eb_straight: 312.5, side_eb_left: 337.5
+    // Southbound (driving down): Left is closer to x=400 (centerline)
+    main_sb_straight: 362.5, // Outer lane
+    main_sb_left: 387.5,     // Inner lane (SWAPPED)
+
+    // Northbound (driving up): Left is closer to x=400 (centerline)
+    main_nb_left: 412.5,     // Inner lane (Correct)
+    main_nb_straight: 437.5, // Outer lane (Correct)
+    
+    // Westbound (driving left): Left is closer to y=300 (centerline)
+    side_wb_straight: 262.5, // Outer lane (Correct)
+    side_wb_left: 287.5,     // Inner lane (Correct)
+
+    // Eastbound (driving right): Left is closer to y=300 (centerline)
+    side_eb_left: 312.5,     // Inner lane (SWAPPED)
+    side_eb_straight: 337.5  // Outer lane
 };
+// --- END OF FIX ---
 
 // --- 3. SIMULATION CONSTANTS ---
 const PIXELS_PER_METER = 5;
