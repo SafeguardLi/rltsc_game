@@ -8,10 +8,16 @@
 </head>
 <body>
     <h1>Traffic Signal Controller</h1>
+
+    <h2 id="gameOverDisplay" style="display: none; color: red; text-align: center;">
+        Game Over!
+    </h2>
     
     <canvas id="gameCanvas" width="800" height="600"></canvas>
     
     <div id="controls">
+        <h3>Time Left: <span id="timerDisplay">2:00</span></h3>
+
         <p>Current Phase: <span id="currentPhaseDisplay">Main Street Straight</span></p>
         <button id="btnMainStraight">Main Street Straight</button>
         <button id="btnMainLeft">Main Street Left</button>
@@ -19,6 +25,10 @@
         <button id="btnSideLeft">Side Street Left</button>
         <p><b>Score (Avg. Travel Time):</b> <span id="scoreDisplay">0.00</span> seconds</p>
 
+        <button id="btnStart" style="margin-top: 10px; background-color: #d4edda; border-color: #c3e6cb;">
+            Start Game
+        </button>
+        
         <button id="btnReset" style="margin-top: 10px; background-color: #ffcccc; border-color: #aa8888;">
             Start Over
         </button>
