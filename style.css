@@ -1,0 +1,38 @@
+body {
+    font-family: Arial, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background-color: #f0f0f0;
+}
+
+h1 {
+    color: #333;
+}
+
+/* Style the game "screen" */
+#gameCanvas {
+    background-color: #777; /* Dark grey for "pavement" */
+    border: 2px solid #000;
+}
+
+/* Style the control panel */
+#controls {
+    margin-top: 20px;
+    padding: 15px;
+    background-color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+button {
+    margin: 5px;
+    padding: 10px;
+    font-size: 16px;
+    cursor: pointer;
+}
+
+#currentPhaseDisplay {
+    font-weight: bold;
+    color: #0056b3;
+}
