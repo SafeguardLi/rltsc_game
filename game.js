@@ -16,28 +16,26 @@ const gameOverDisplay = document.getElementById('gameOverDisplay');
 const throughputDisplay = document.getElementById('throughputDisplay');
 
 // --- 2. LANE & INTERSECTION COORDINATES ---
-// --- 2. LANE & INTERSECTION COORDINATES ---
 const INTERSECTION = { x_start: 350, x_end: 450, y_start: 250, y_end: 350 };
 
-// --- BUG FIX: This block is now correct ---
+// --- BUG FIX from previous step is included here ---
 const LANES = {
     // Southbound (driving down): Left is closer to x=400 (centerline)
-    main_sb_straight: 362.5, // Outer lane
-    main_sb_left: 387.5,     // Inner lane (SWAPPED)
+    main_sb_straight: 362.5, 
+    main_sb_left: 387.5,     
 
     // Northbound (driving up): Left is closer to x=400 (centerline)
-    main_nb_left: 412.5,     // Inner lane (Correct)
-    main_nb_straight: 437.5, // Outer lane (Correct)
+    main_nb_left: 412.5,     
+    main_nb_straight: 437.5, 
     
     // Westbound (driving left): Left is closer to y=300 (centerline)
-    side_wb_straight: 262.5, // Outer lane (Correct)
-    side_wb_left: 287.5,     // Inner lane (Correct)
+    side_wb_straight: 262.5, 
+    side_wb_left: 287.5,     
 
     // Eastbound (driving right): Left is closer to y=300 (centerline)
-    side_eb_left: 312.5,     // Inner lane (SWAPPED)
-    side_eb_straight: 337.5  // Outer lane
+    side_eb_left: 312.5,     
+    side_eb_straight: 337.5  
 };
-// --- END OF FIX ---
 
 // --- 3. SIMULATION CONSTANTS ---
 const PIXELS_PER_METER = 5;
@@ -59,10 +57,13 @@ let gameTimerTimeout = null;
 let gameEndTime = 0;
 let throughputCount = 0;
 
+// --- CHANGED: New variables for Historical Average ---
+let totalTravelTimeSum = 0;
+let completedTripsCount = 0;
+
 // --- 5. VEHICLE CLASS ---
 class Vehicle {
     constructor(startX, startY, lane, direction) {
-        // ... (constructor is unchanged) ...
         this.id = vehicleIdCounter++;
         this.x = startX; this.y = startY;
         this.lane = lane; this.direction = direction;
@@ -77,7 +78,7 @@ class Vehicle {
         }
     }
 
-    findLeadVehicle(allVehicles) { /* ... (unchanged) ... */
+    findLeadVehicle(allVehicles) {
         let vehiclesInMyLane = allVehicles.filter(v =>
             v.id !== this.id && v.lane === this.lane && v.direction === this.direction
         );
@@ -99,7 +100,7 @@ class Vehicle {
         return leadVehicles.length > 0 ? leadVehicles[0] : null;
     }
 
-    calculateDistanceTo(leadVehicle) { /* ... (unchanged) ... */
+    calculateDistanceTo(leadVehicle) {
         let myFrontBumper, theirRearBumper;
         switch (this.direction) {
             case 'south':
@@ -121,7 +122,7 @@ class Vehicle {
         }
     }
 
-    hasReachedTurnPoint() { /* ... (unchanged) ... */
+    hasReachedTurnPoint() {
         switch (this.direction) {
             case 'south': return this.y > LANES.side_eb_left;
             case 'north': return this.y < LANES.side_wb_left;
@@ -131,7 +132,7 @@ class Vehicle {
         return false;
     }
 
-    performTurn() { /* ... (unchanged) ... */
+    performTurn() {
         this.state = 'turning';
         switch (this.direction) {
             case 'south': this.direction = 'east'; break;
@@ -141,7 +142,7 @@ class Vehicle {
         }
     }
 
-    getLightStatus() { /* ... (unchanged) ... */
+    getLightStatus() {
         switch (currentPhase) {
             case 'main_straight':
                 return (this.lane === 'main_straight') ? 'green' : 'red';
@@ -162,17 +163,14 @@ class Vehicle {
         }
     }
 
-    // --- BUG FIX: This function is now correct ---
-    // Returns TRUE only if the vehicle is *in the small zone* right before the stop line.
     checkIsAtStopLine() {
-        const stopBuffer = 3; // Stop 3px before the line
-        const checkZone = 10; // Only check 10px *before* the stop line
+        const stopBuffer = 3; 
+        const checkZone = 10; 
         
         switch (this.direction) {
             case 'south': 
                 let stopY_S = INTERSECTION.y_start - stopBuffer;
                 let frontY_S = this.y + this.height / 2;
-                // Is the front bumper *past* the start of the zone AND *before* the line?
                 return (frontY_S >= stopY_S - checkZone) && (frontY_S <= stopY_S);
             case 'north':
                 let stopY_N = INTERSECTION.y_end + stopBuffer;
@@ -190,7 +188,6 @@ class Vehicle {
         return false;
     }
 
-    // Checks if the vehicle's front bumper is PAST the stop line
     checkHasCrossedStopLine() {
         const buffer = 3;
         switch (this.direction) {
@@ -206,7 +203,7 @@ class Vehicle {
         return false;
     }
     
-    isPastIntersection() { /* ... (unchanged) ... */
+    isPastIntersection() {
         switch (this.direction) {
             case 'south': return this.y - this.height / 2 > INTERSECTION.y_end;
             case 'north': return this.y + this.height / 2 < INTERSECTION.y_start;
@@ -216,12 +213,10 @@ class Vehicle {
         return false;
     }
 
-    // --- BUG FIX: This logic is now correct ---
     update(allVehicles) {
         let leadVehicle = this.findLeadVehicle(allVehicles);
         let distanceToLead = leadVehicle ? Math.abs(this.calculateDistanceTo(leadVehicle)) : Infinity;
 
-        // --- States for vehicles IN or PAST the intersection ---
         if (this.state !== 'approaching') {
             if (leadVehicle && distanceToLead < SAFE_GAP_PIXELS) {
                 this.speed = 0;
@@ -233,24 +228,20 @@ class Vehicle {
                 this.performTurn();
             }
         }
-        // --- State for vehicles 'approaching' the intersection ---
         else {
             let lightStatus = this.getLightStatus();
-            let isAtStopLine = this.checkIsAtStopLine(); // Use the new, correct function
+            let isAtStopLine = this.checkIsAtStopLine(); 
 
-            // Decision to stop
             if (leadVehicle && distanceToLead < SAFE_GAP_PIXELS) {
                 this.speed = 0;
             } else if (isAtStopLine && lightStatus === 'red') {
                 this.speed = 0;
             } else if (isAtStopLine && lightStatus === 'yellow' && this.speed === 0) {
-                this.speed = 0; // Already stopped, stay stopped
+                this.speed = 0; 
             }
-            // Decision to go
             else {
                 this.speed = NORMAL_SPEED_PIXELS;
                 
-                // If we cross the line, change state
                 if (this.checkHasCrossedStopLine()) {
                     if (this.lane.includes('left')) {
                         this.state = 'in_intersection_turning';
@@ -261,7 +252,6 @@ class Vehicle {
             }
         }
         
-        // Move based on speed
         if (this.speed > 0) {
             switch (this.direction) {
                 case 'north': this.y -= this.speed; break;
@@ -272,44 +262,42 @@ class Vehicle {
         }
     }
     
-    draw() { /* ... (unchanged) ... */
+    draw() {
         ctx.fillStyle = this.color;
         ctx.fillRect(this.x - this.width / 2, this.y - this.height / 2, this.width, this.height);
     }
 }
 
 // --- 6. SIMULATION LOGIC ---
-// (All functions unchanged)
-function startSpawners() { /* ... (unchanged) ... */
+function startSpawners() {
     stopSpawners();
     spawnerIntervals.push(setInterval(spawnMainStraight, 1000));
     spawnerIntervals.push(setInterval(spawnSideStraight, 2000));
     spawnerIntervals.push(setInterval(spawnMainLeft, 5000));
     spawnerIntervals.push(setInterval(spawnSideLeft, 7000));
 }
-function stopSpawners() { /* ... (unchanged) ... */
+function stopSpawners() {
     spawnerIntervals.forEach(clearInterval);
     spawnerIntervals = [];
 }
-function spawnMainStraight() { /* ... (unchanged) ... */
+function spawnMainStraight() {
     vehicles.push(new Vehicle(LANES.main_sb_straight, 0 - 25, 'main_straight', 'south'));
     vehicles.push(new Vehicle(LANES.main_nb_straight, 600 + 25, 'main_straight', 'north'));
 }
-function spawnSideStraight() { /* ... (unchanged) ... */
+function spawnSideStraight() {
     vehicles.push(new Vehicle(0 - 25, LANES.side_eb_straight, 'side_straight', 'east'));
     vehicles.push(new Vehicle(800 + 25, LANES.side_wb_straight, 'side_straight', 'west'));
 }
-function spawnMainLeft() { /* ... (unchanged) ... */
+function spawnMainLeft() {
     vehicles.push(new Vehicle(LANES.main_sb_left, 0 - 25, 'main_left', 'south'));
     vehicles.push(new Vehicle(LANES.main_nb_left, 600 + 25, 'main_left', 'north'));
 }
-function spawnSideLeft() { /* ... (unchanged) ... */
+function spawnSideLeft() {
     vehicles.push(new Vehicle(0 - 25, LANES.side_eb_left, 'side_left', 'east'));
     vehicles.push(new Vehicle(800 + 25, LANES.side_wb_left, 'side_left', 'west'));
 }
 
 // --- 7. USER INPUT (Button Clicks) ---
-// (All functions unchanged)
 btnMainStraight.onclick = function() { requestPhaseChange('main_straight'); };
 btnMainLeft.onclick = function() { requestPhaseChange('main_left'); };
 btnSideStraight.onclick = function() { requestPhaseChange('side_straight'); };
@@ -317,7 +305,7 @@ btnSideLeft.onclick = function() { requestPhaseChange('side_left'); };
 btnStart.onclick = function() { startGame(); };
 btnReset.onclick = function() { resetGame(); };
 
-function requestPhaseChange(requestedPhase) { /* ... (unchanged) ... */
+function requestPhaseChange(requestedPhase) {
     if (isTransitioning || requestedPhase === currentPhase || !isGameRunning) {
         return;
     }
@@ -343,13 +331,12 @@ function requestPhaseChange(requestedPhase) { /* ... (unchanged) ... */
 }
 
 // --- 8. DRAWING FUNCTIONS ---
-// (All functions unchanged)
-function drawIntersection() { /* ... (unchanged) ... */ 
+function drawIntersection() { 
     ctx.fillStyle = '#666';
     ctx.fillRect(INTERSECTION.x_start, 0, (INTERSECTION.x_end - INTERSECTION.x_start), 600);
     ctx.fillRect(0, INTERSECTION.y_start, 800, (INTERSECTION.y_end - INTERSECTION.y_start));
 }
-function drawLaneLines() { /* ... (unchanged) ... */ 
+function drawLaneLines() { 
     ctx.lineWidth = 3;
     ctx.strokeStyle = 'yellow'; ctx.setLineDash([]);
     ctx.beginPath();
@@ -375,7 +362,7 @@ function drawLaneLines() { /* ... (unchanged) ... */
     ctx.stroke();
     ctx.setLineDash([]);
 }
-function drawStopBars() { /* ... (unchanged) ... */ 
+function drawStopBars() { 
     ctx.lineWidth = 5;
     let mainStraightColor = 'red', mainLeftColor = 'red',
         sideStraightColor = 'red', sideLeftColor = 'red';
@@ -408,21 +395,18 @@ function drawStopBars() { /* ... (unchanged) ... */
 }
 
 // --- GAME FUNCTIONS ---
-// (All functions unchanged)
-function updateScore() { /* ... (unchanged) ... */
-    const waitingVehicles = vehicles.filter(v => v.state === 'approaching');
-    if (waitingVehicles.length === 0) {
+
+// --- CHANGED: Now calculates Historical Average ---
+function updateScore() {
+    if (completedTripsCount === 0) {
         scoreDisplay.textContent = "0.00";
         return;
     }
-    const currentTime = Date.now();
-    let totalWaitTime = waitingVehicles.reduce((sum, v) => {
-        return sum + (currentTime - v.startTime);
-    }, 0);
-    let avgWaitTime = (totalWaitTime / waitingVehicles.length) / 1000;
-    scoreDisplay.textContent = avgWaitTime.toFixed(2);
+    let avg = totalTravelTimeSum / completedTripsCount;
+    scoreDisplay.textContent = avg.toFixed(2);
 }
-function updateTimerDisplay() { /* ... (unchanged) ... */
+
+function updateTimerDisplay() {
     if (!isGameRunning && gameEndTime === 0) return;
     let timeLeftMS = gameEndTime - Date.now();
     if (timeLeftMS < 0) timeLeftMS = 0;
@@ -430,13 +414,13 @@ function updateTimerDisplay() { /* ... (unchanged) ... */
     let minutes = Math.floor(timeLeftMS / (1000 * 60));
     timerDisplay.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
 }
-function setSignalButtonsDisabled(isDisabled) { /* ... (unchanged) ... */
+function setSignalButtonsDisabled(isDisabled) {
     btnMainStraight.disabled = isDisabled;
     btnMainLeft.disabled = isDisabled;
     btnSideStraight.disabled = isDisabled;
     btnSideLeft.disabled = isDisabled;
 }
-function endGame() { /* ... (unchanged) ... */
+function endGame() {
     isGameRunning = false;
     stopSpawners();
     clearTimeout(phaseChangeTimeout);
@@ -446,13 +430,13 @@ function endGame() { /* ... (unchanged) ... */
     btnStart.disabled = true;
     btnReset.disabled = false; 
 }
-function drawInitialState() { /* ... (unchanged) ... */
+function drawInitialState() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     drawIntersection();
     drawLaneLines();
     drawStopBars();
 }
-function resetGame() { /* ... (unchanged) ... */
+function resetGame() {
     isGameRunning = false;
     stopSpawners();
     clearTimeout(phaseChangeTimeout);
@@ -460,6 +444,11 @@ function resetGame() { /* ... (unchanged) ... */
     isTransitioning = false;
     vehicles = [];
     gameEndTime = 0;
+    
+    // --- CHANGED: Reset the historical counters ---
+    totalTravelTimeSum = 0;
+    completedTripsCount = 0;
+    
     currentPhase = 'main_straight';
     phaseDisplay.textContent = 'Main Street Straight'.toUpperCase();
     scoreDisplay.textContent = "0.00";
@@ -472,7 +461,7 @@ function resetGame() { /* ... (unchanged) ... */
     btnReset.disabled = true;
     drawInitialState();
 }
-function startGame() { /* ... (unchanged) ... */
+function startGame() {
     if (isGameRunning) return; 
     resetGame(); 
     isGameRunning = true;
@@ -486,7 +475,6 @@ function startGame() { /* ... (unchanged) ... */
 }
 
 // --- 9. THE GAME LOOP ---
-// (Unchanged)
 function gameLoop() {
     if (!isGameRunning) return;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -506,6 +494,13 @@ function gameLoop() {
         }
         
         if (v.y > canvas.height + 50 || v.y < -50 || v.x > canvas.width + 50 || v.x < -50) {
+            
+            // --- CHANGED: Record travel time when vehicle finishes trip ---
+            let tripTime = (Date.now() - v.startTime) / 1000; // seconds
+            totalTravelTimeSum += tripTime;
+            completedTripsCount++;
+            // --- End change ---
+            
             vehicles.splice(i, 1);
         }
     }
